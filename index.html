@@ -37,12 +37,72 @@
                 text-align: center;
                 max-width: 80%;
             }
+
+            #info-card {
+                display: none;
+                position: absolute;
+                top: 16px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+                background: rgba(20, 20, 40, 0.85);
+                color: white;
+                padding: 12px 24px;
+                border-radius: 12px;
+                font-family: sans-serif;
+                text-align: center;
+                min-width: 180px;
+            }
+
+            #info-card .label {
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                opacity: 0.7;
+                margin-bottom: 2px;
+            }
+
+            #info-card .value {
+                font-size: 28px;
+                font-weight: bold;
+                line-height: 1.1;
+            }
+
+            #info-card .secondary {
+                font-size: 12px;
+                opacity: 0.7;
+                margin-top: 4px;
+            }
+
+            #info-card .anomaly-warm {
+                font-size: 12px;
+                margin-top: 4px;
+                color: #ff9966;
+            }
+
+            #info-card .anomaly-cold {
+                font-size: 12px;
+                margin-top: 4px;
+                color: #99ccff;
+            }
         </style>
 
     </head>
 
     <body>
         <div id="map"></div>
+
+        <div id="error-message">
+            Location access is disabled. Please enable it.
+        </div>
+
+        <div id="info-card">
+            <div class="label">Temperature now</div>
+            <div class="value" id="temp-now">--</div>
+            <div class="secondary" id="temp-average">Today avg: --</div>
+            <div class="secondary" id="temp-normal">Normal: loading...</div>
+            <div id="temp-anomaly"></div>
+        </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         
@@ -56,6 +116,8 @@
                     attribution: '© OpenStreetMap contributors'
                 }
                 ).addTo(map);
+            
+            let weatherData = {};
 
             function getCurrentHourString() {
                 const now = new Date();
@@ -65,6 +127,60 @@
                     pad(now.getDate()) + 'T' +
                     pad(now.getHours()) + ':00';
             }
+
+            function formatDate(date) {
+                const pad = n => String(n).padStart(2, '0');
+                return date.getFullYear() + '-' +
+                    pad(date.getMonth() + 1) + '-' +
+                    pad(date.getDate());
+            }
+
+            function calculateAverage(values) {
+                const valid = values.filter(v => v !== null && v !== undefined);
+                if (valid.length === 0) return null;
+                const sum = valid.reduce((acc, val) => acc + val, 0);
+                return Math.round(sum / valid.length);
+            }
+
+            function updateInfoCard() {
+                if (!weatherData.temperatures) return;
+
+                const card = document.getElementById('info-card');
+                const tempNow = document.getElementById('temp-now');
+                const tempAverage = document.getElementById('temp-average');
+                const tempNormal = document.getElementById('temp-normal');
+                const tempAnomaly = document.getElementById('temp-anomaly');
+
+                const current = Math.round(weatherData.temperatures[0]);
+                const average = calculateAverage(weatherData.temperatures);
+                
+                tempNow.textContent = current + '°C';
+                tempAverage.textContent = 'Today avg: ' + average + '°C';
+
+                console.log(current, average);
+
+                if (weatherData.historicalNormal !== undefined) {
+                    tempNormal.textContent = 'Normal for today: ' + weatherData.historicalNormal + '°C';
+
+                    const diff = average - weatherData.historicalNormal;
+                    const sign = diff > 0 ? '+' : '';
+                    const absDiff = Math.abs(diff);
+
+                    if (absDiff < 1) {
+                        tempAnomaly.className = 'secondary';
+                        tempAnomaly.textContent = 'Near normal';
+                    } else if (diff > 0) {
+                        tempAnomaly.className = 'anomaly-warm';
+                        tempAnomaly.textContent = sign + diff + '°C warmer than usual';
+                    } else {
+                        tempAnomaly.className = 'anomaly-cold';
+                        tempAnomaly.textContent = diff + '°C cooler than usual';
+                    }
+
+                } 
+                card.style.display = 'block';
+            }
+
 
             async function fetchWeather(lat, lon) {
                 const url = 
@@ -85,25 +201,70 @@
                         t => t >= currentHour
                     );
 
-                    const times = data.hourly.time.slice(startIndex, startIndex + 24);
-                    const temperatures = data.hourly.temperature_2m.slice(startIndex, startIndex + 24);
+                    weatherData.times = data.hourly.time.slice(startIndex, startIndex + 24);
+                    weatherData.temperatures = data.hourly.temperature_2m.slice(startIndex, startIndex + 24);
 
-                    console.log('Current hour:', currentHour);
-                    console.log('Start index:', startIndex);
-                    console.log('Times:', times);
-                    console.log('Temperatures:', temperatures);
+                    updateInfoCard();
 
                 } catch (error) {
                     console.log('Weather fetch error: ' + error.message);
                 }
             }
 
+            async function fetchHistoricalNormal(lat, lon) {
+                const today = new Date();
+
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                const tenYearsAgo = new Date(today);
+                tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
+
+                const url =
+                    'https://archive-api.open-meteo.com/v1/archive' +
+                    '?latitude=' + lat +
+                    '&longitude=' + lon +
+                    '&start_date=' + formatDate(tenYearsAgo) +
+                    '&end_date=' + formatDate(yesterday) +
+                    '&daily=temperature_2m_mean' +
+                    '&timezone=auto';
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    const currentMonth = today.getMonth() + 1;
+                    const currentDay = today.getDate();
+
+                    const matchingTemps = data.daily.time
+                    .map((dateStr, index) => ({ dateStr, index }))
+                    .filter(({ dateStr }) => {
+                        const parts = dateStr.split('-');
+                        return parseInt(parts[1]) === currentMonth &&
+                            parseInt(parts[2]) === currentDay;
+                    })
+                    .map(({ index }) => data.daily.temperature_2m_mean[index])
+                    .filter(val => val !== null);
+
+                    weatherData.historicalNormal = calculateAverage(matchingTemps);
+
+                    updateInfoCard();
+
+                } catch (error) {
+                    console.log('Historical fetch error: ' + error.message);
+                }
+            }
+
+
             function onGpsSuccess(position) {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
+
                 map.setView([lat, lon], 11);
                 L.marker([lat, lon]).addTo(map);
+
                 fetchWeather(lat, lon);
+                fetchHistoricalNormal(lat, lon);
             }
 
             function onGpsError(error) {
@@ -117,9 +278,7 @@
             );
         </script>
 
-        <div id="error-message">
-            Location access is disabled. Please enable it.
-        </div>
+        
         
     </body>
 </html>

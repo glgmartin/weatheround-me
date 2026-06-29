@@ -9,108 +9,181 @@
             href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
 
+        
         <style>
             html, body {
-                height: 100%;
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            }
+
+            #map-wrapper {
+            flex: 1;
+            min-height: 0;
+            position: relative;
             }
 
             #map {
-                flex: 1;
-                min-height: 0;
+            height: 100%;
+            width: 100%;
             }
 
-            #bottom-bar {
-                flex-shrink: 0;
-            }
-
-            #time-slider {
-                flex: 1;
-                accent-color: #7eb8f7;
-                cursor: pointer;
-            }
-
-            .mode-tab.active {
-                background: rgba(255, 255, 255, 0.3);
-                font-weight: bold;
-            }
-
-            .mode-tab {
-                transition: background 0.15s;
+            #cloud-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgb(140, 150, 165);
+                pointer-events: none;
+                z-index: 400;
+                display: none;
+                transition: opacity 0.3s;
             }
 
             #error-message {
-                display: none;
-                position: absolute;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 1000;
-                background: rgba(200, 0, 0, 0.85);
-                color: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                font-family: sans-serif;
-                font-size: 14px;
-                text-align: center;
-                max-width: 80%;
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(200, 0, 0, 0.85);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-family: sans-serif;
+            font-size: 14px;
+            text-align: center;
+            max-width: 80%;
             }
 
             #info-card {
-                display: none;
-                position: absolute;
-                top: 16px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 1000;
-                background: rgba(20, 20, 40, 0.85);
-                color: white;
-                padding: 12px 24px;
-                border-radius: 12px;
-                font-family: sans-serif;
-                text-align: center;
-                min-width: 180px;
+            display: none;
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(20, 20, 40, 0.85);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-family: sans-serif;
+            text-align: center;
+            min-width: 180px;
             }
 
             #info-card .label {
-                font-size: 11px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                opacity: 0.7;
-                margin-bottom: 2px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            margin-bottom: 2px;
             }
 
             #info-card .value {
-                font-size: 28px;
-                font-weight: bold;
-                line-height: 1.1;
+            font-size: 28px;
+            font-weight: bold;
+            line-height: 1.1;
             }
 
             #info-card .secondary {
-                font-size: 12px;
-                opacity: 0.7;
-                margin-top: 4px;
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 4px;
             }
 
             #info-card .anomaly-warm {
-                font-size: 12px;
-                margin-top: 4px;
-                color: #ff9966;
+            font-size: 12px;
+            margin-top: 4px;
+            color: #ff9966;
             }
 
             #info-card .anomaly-cold {
-                font-size: 12px;
-                margin-top: 4px;
-                color: #99ccff;
+            font-size: 12px;
+            margin-top: 4px;
+            color: #99ccff;
+            }
+
+            #bottom-bar {
+            flex-shrink: 0;
+            background: rgba(20, 20, 40, 0.97);
+            padding: 10px 16px 16px;
+            z-index: 1000;
+            }
+
+            #time-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            }
+
+            #now-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 12px;
+            font-family: sans-serif;
+            padding: 6px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+            }
+
+            #now-button:active {
+            background: rgba(255, 255, 255, 0.4);
+            }
+
+            #time-slider {
+            flex: 1;
+            accent-color: #7eb8f7;
+            cursor: pointer;
+            }
+
+            #time-label {
+            color: white;
+            font-family: sans-serif;
+            font-size: 12px;
+            opacity: 0.8;
+            min-width: 32px;
+            text-align: right;
+            }
+
+            #mode-tabs {
+            display: flex;
+            gap: 8px;
+            }
+
+            .mode-tab {
+            flex: 1;
+            padding: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 12px;
+            font-family: sans-serif;
+            cursor: pointer;
+            transition: background 0.15s;
+            }
+
+            .mode-tab.active {
+            background: rgba(255, 255, 255, 0.3);
+            font-weight: bold;
             }
         </style>
-
     </head>
 
     <body>
-        <div id="map"></div>
+        <div id="map-wrapper">
+            <div id="map"></div>
+            <div id="cloud-overlay"></div>
+        </div>
 
         <div id="error-message">
             Location access is disabled. Please enable it.
@@ -120,7 +193,7 @@
             <div class="label" id="card-label">Temperature</div>
             <div class="value" id="card-value">--</div>
             <div class="secondary" id="card-time">--:--</div>
-            <div class="secondary" id="temp-normal">Normal: loading...</div>
+            <div class="secondary" id="card-secondary"></div>
             <div id="temp-anomaly"></div>
         </div>
 
@@ -199,6 +272,28 @@
                 return Math.round(sum / valid.length);
             }
 
+            function cloudDescription(cover) {
+                if (cover === null || cover === undefined) return '';
+                if (cover <= 20) return 'Clear sky';
+                if (cover <= 20) return 'Mostly clear';
+                if (cover <= 20) return 'Partly cloudy';
+                if (cover <= 20) return 'Mostly cloudy';
+                return 'Overcast';
+            }
+
+            function updateCloudOverlay() {
+                const overlay = document.getElementById('cloud-overlay');
+
+                if (currentMode !== 'cloud' || !weatherData.cloudcover) {
+                    overlay.style.display = 'none';
+                    return;
+                }
+
+                const cover = weatherData.cloudcover[currentIndex];
+                overlay.style.display = 'block';
+                overlay.style.opacity = (cover / 100) * 0.75;
+            }
+
             function updateInfoCard() {
                 if (!weatherData.temperatures) return;
 
@@ -206,7 +301,7 @@
                 const cardLabel = document.getElementById('card-label');
                 const cardValue = document.getElementById('card-value');
                 const cardTime = document.getElementById('card-time');
-                const tempNormal = document.getElementById('temp-normal');
+                const cardSecondary = document.getElementById('card-secondary');
                 const tempAnomaly = document.getElementById('temp-anomaly');
 
                 cardTime.textContent = formatTimeLabel(weatherData.times[currentIndex]);
@@ -217,7 +312,7 @@
 
                     if (weatherData.historicalNormal !== undefined) {
                         const todayAvg = calculateAverage(weatherData.temperatures);
-                        tempNormal.textContent = 'Normal for today: ' + weatherData.historicalNormal + '°C';
+                        cardSecondary.textContent = 'Normal for today: ' + weatherData.historicalNormal + '°C';
                         
                         const diff = todayAvg - weatherData.historicalNormal;
                         const sign = diff > 0 ? '+' : '';
@@ -234,16 +329,24 @@
                             tempAnomaly.textContent = diff + '°C cooler than usual';
                         }
                     } else {
-                        tempNormal.textContent = 'Normal: loading...';
+                        cardSecondary.textContent = 'Normal: loading...';
                         tempAnomaly.textContent = '';
                     }
+                } else if (currentMode === 'cloud') {
+                    const cover = weatherData.cloudcover ? weatherData.cloudcover[currentIndex] : null;
+                    cardLabel.textContent = 'Cloud Cover';
+                    cardValue.textContent = cover !== null ? cover + '%' : '--';
+                    cardSecondary.textContent = cloudDescription(cover);
+                    tempAnomaly.textContent = '';
+
                 } else {
                     cardLabel.textContent = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
                     cardValue.textContent = '–';
-                    tempNormal.textContent = 'Data coming soon';
+                    cardSecondary.textContent = 'Data coming soon';
                     tempAnomaly.textContent = '';
                 }
 
+                updateCloudOverlay();
                 card.style.display = 'block';
             }
 
@@ -278,7 +381,7 @@
                     'https://api.open-meteo.com/v1/forecast' +
                     '?latitude=' + lat +
                     '&longitude=' + lon +
-                    '&hourly=temperature_2m' +
+                    '&hourly=temperature_2m,cloudcover' +
                     '&models=meteofrance_arome_france' +
                     '&timezone=auto' +
                     '&forecast_days=2';
@@ -294,6 +397,7 @@
 
                     weatherData.times = data.hourly.time.slice(startIndex, startIndex + 24);
                     weatherData.temperatures = data.hourly.temperature_2m.slice(startIndex, startIndex + 24);
+                    weatherData.cloudcover = data.hourly.cloudcover.slice(startIndex, startIndex + 24);
 
                     updateInfoCard();
 

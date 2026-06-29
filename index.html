@@ -30,7 +30,8 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         
         <script>
-            const map = L.map('map').setView([48.85, 2.35], 12);
+            const map = L.map('map').setView([48.85, 2.35], 6);
+            
             L.tileLayer(
                 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 {
@@ -38,6 +39,21 @@
                     attribution: '© OpenStreetMap contributors'
                 }
                 ).addTo(map);
+
+            function onGpsSuccess(position) {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                map.setView([lat, lon], 11);
+                L.marker([lat, lon]).addTo(map);
+            }
+
+            function onGpsError(error) {
+                console.log('GPS error: ' + error.message);
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                onGpsSuccess, onGpsError
+            );
         </script>
 
         

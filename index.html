@@ -11,14 +11,34 @@
 
         <style>
             html, body {
-                margin: 0;
-                padding: 0;
                 height: 100%;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
             }
 
             #map {
-                height: 100%;
-                width: 100%;
+                flex: 1;
+                min-height: 0;
+            }
+
+            #bottom-bar {
+                flex-shrink: 0;
+            }
+
+            #time-slider {
+                flex: 1;
+                accent-color: #7eb8f7;
+                cursor: pointer;
+            }
+
+            .mode-tab.active {
+                background: rgba(255, 255, 255, 0.3);
+                font-weight: bold;
+            }
+
+            .mode-tab {
+                transition: background 0.15s;
             }
 
             #error-message {
@@ -97,11 +117,25 @@
         </div>
 
         <div id="info-card">
-            <div class="label">Temperature now</div>
-            <div class="value" id="temp-now">--</div>
-            <div class="secondary" id="temp-average">Today avg: --</div>
+            <div class="label" id="card-label">Temperature</div>
+            <div class="value" id="card-value">--</div>
+            <div class="secondary" id="card-time">--:--</div>
             <div class="secondary" id="temp-normal">Normal: loading...</div>
             <div id="temp-anomaly"></div>
+        </div>
+
+        <div id="bottom-bar">
+            <div id="time-row">
+                <button id="now-button">Now</button>
+                <input type="range" id="time-slider" min="0" max="23" value="0" step="1">
+                <div id="time-label">Now</div>
+            </div>
+            <div id="mode-tabs">
+                <button class="mode-tab active" data-mode="temperature">🌡 Temp</button>
+                <button class="mode-tab" data-mode="cloud">☁️ Cloud</button>
+                <button class="mode-tab" data-mode="rain">🌧 Rain</button>
+                <button class="mode-tab" data-mode="thunder">⚡ Storm</button>
+            </div>
         </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -118,6 +152,8 @@
                 ).addTo(map);
             
             let weatherData = {};
+            let currentMode = 'temperature';
+            let currentIndex = 0;
 
             function getCurrentHourString() {
                 const now = new Date();
@@ -135,6 +171,27 @@
                     pad(date.getDate());
             }
 
+            function formatTimeLabel(timeStr) {
+                const date = new Date(timeStr);
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(today.getDate() + 1);
+
+                const isToday = date.getDate() === today.getDate() &&
+                                date.getMonth() === today.getMonth();
+
+                const isTomorrow = date.getDate() === tomorrow.getDate() &&
+                                    date.getMonth() === tomorrow.getMonth();
+
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const time = hours + ':' + minutes;
+
+                if (isToday) return 'Today ' + time;
+                if (isTomorrow) return 'Tomorrow ' + time;
+                return timeStr.split('T')[0] + ' ' + time;
+            }
+
             function calculateAverage(values) {
                 const valid = values.filter(v => v !== null && v !== undefined);
                 if (valid.length === 0) return null;
@@ -146,41 +203,75 @@
                 if (!weatherData.temperatures) return;
 
                 const card = document.getElementById('info-card');
-                const tempNow = document.getElementById('temp-now');
-                const tempAverage = document.getElementById('temp-average');
+                const cardLabel = document.getElementById('card-label');
+                const cardValue = document.getElementById('card-value');
+                const cardTime = document.getElementById('card-time');
                 const tempNormal = document.getElementById('temp-normal');
                 const tempAnomaly = document.getElementById('temp-anomaly');
 
-                const current = Math.round(weatherData.temperatures[0]);
-                const average = calculateAverage(weatherData.temperatures);
-                
-                tempNow.textContent = current + '°C';
-                tempAverage.textContent = 'Today avg: ' + average + '°C';
+                cardTime.textContent = formatTimeLabel(weatherData.times[currentIndex]);
 
-                console.log(current, average);
+                if (currentMode == 'temperature') {
+                    cardLabel.textContent = 'Temperature';
+                    cardValue.textContent = Math.round(weatherData.temperatures[currentIndex]) + '°C';
 
-                if (weatherData.historicalNormal !== undefined) {
-                    tempNormal.textContent = 'Normal for today: ' + weatherData.historicalNormal + '°C';
+                    if (weatherData.historicalNormal !== undefined) {
+                        const todayAvg = calculateAverage(weatherData.temperatures);
+                        tempNormal.textContent = 'Normal for today: ' + weatherData.historicalNormal + '°C';
+                        
+                        const diff = todayAvg - weatherData.historicalNormal;
+                        const sign = diff > 0 ? '+' : '';
+                        const absDiff = Math.abs(diff);
 
-                    const diff = average - weatherData.historicalNormal;
-                    const sign = diff > 0 ? '+' : '';
-                    const absDiff = Math.abs(diff);
-
-                    if (absDiff < 1) {
-                        tempAnomaly.className = 'secondary';
-                        tempAnomaly.textContent = 'Near normal';
-                    } else if (diff > 0) {
-                        tempAnomaly.className = 'anomaly-warm';
-                        tempAnomaly.textContent = sign + diff + '°C warmer than usual';
+                        if (absDiff < 1) {
+                            tempAnomaly.className = 'secondary';
+                            tempAnomaly.textContent = 'Near normal';
+                        } else if (diff > 0) {
+                            tempAnomaly.className = 'anomaly-warm';
+                            tempAnomaly.textContent = sign + diff + '°C warmer than usual';
+                        } else {
+                            tempAnomaly.className = 'anomaly-cold';
+                            tempAnomaly.textContent = diff + '°C cooler than usual';
+                        }
                     } else {
-                        tempAnomaly.className = 'anomaly-cold';
-                        tempAnomaly.textContent = diff + '°C cooler than usual';
+                        tempNormal.textContent = 'Normal: loading...';
+                        tempAnomaly.textContent = '';
                     }
+                } else {
+                    cardLabel.textContent = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
+                    cardValue.textContent = '–';
+                    tempNormal.textContent = 'Data coming soon';
+                    tempAnomaly.textContent = '';
+                }
 
-                } 
                 card.style.display = 'block';
             }
 
+            const slider = document.getElementById('time-slider');
+            const timeLabel = document.getElementById('time-label');
+
+            slider.addEventListener('input', function() {
+                currentIndex = parseInt(this.value);
+                timeLabel.textContent = currentIndex === 0 ? 'Now' : '+' + currentIndex + 'h';
+                updateInfoCard();
+            });
+
+            document.getElementById('now-button').addEventListener('click', function() {
+                slider.value = 0;
+                currentIndex = 0;
+                timeLabel.textContent = 'Now';
+                updateInfoCard();
+            });
+
+            const tabs = document.querySelectorAll('.mode-tab');
+            tabs.forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    tabs.forEach(function(t) { t.classList.remove('active'); });
+                    this.classList.add('active');
+                    currentMode = this.dataset.mode;
+                    updateInfoCard();
+                });
+            });
 
             async function fetchWeather(lat, lon) {
                 const url = 

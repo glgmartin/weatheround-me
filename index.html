@@ -20,6 +20,23 @@
                 height: 100%;
                 width: 100%;
             }
+
+            #error-message {
+                display: none;
+                position: absolute;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+                background: rgba(200, 0, 0, 0.85);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-family: sans-serif;
+                font-size: 14px;
+                text-align: center;
+                max-width: 80%;
+            }
         </style>
 
     </head>
@@ -48,7 +65,9 @@
             }
 
             function onGpsError(error) {
-                console.log('GPS error: ' + error.message);
+                const msg = document.getElementById('error-message');
+                msg.style.display = 'block';
+                console.log('GPS Error: ' + error.message);
             }
 
             navigator.geolocation.getCurrentPosition(
@@ -56,6 +75,9 @@
             );
         </script>
 
+        <div id="error-message">
+            Location access is disabled. Please enable it.
+        </div>
         
     </body>
 </html>

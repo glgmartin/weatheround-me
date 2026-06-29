@@ -57,11 +57,53 @@
                 }
                 ).addTo(map);
 
+            function getCurrentHourString() {
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                return now.getFullYear() + '-' +
+                    pad(now.getMonth() + 1) + '-' +
+                    pad(now.getDate()) + 'T' +
+                    pad(now.getHours()) + ':00';
+            }
+
+            async function fetchWeather(lat, lon) {
+                const url = 
+                    'https://api.open-meteo.com/v1/forecast' +
+                    '?latitude=' + lat +
+                    '&longitude=' + lon +
+                    '&hourly=temperature_2m' +
+                    '&models=meteofrance_arome_france' +
+                    '&timezone=auto' +
+                    '&forecast_days=2';
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    const currentHour = getCurrentHourString();
+                    const startIndex = data.hourly.time.findIndex(
+                        t => t >= currentHour
+                    );
+
+                    const times = data.hourly.time.slice(startIndex, startIndex + 24);
+                    const temperatures = data.hourly.temperature_2m.slice(startIndex, startIndex + 24);
+
+                    console.log('Current hour:', currentHour);
+                    console.log('Start index:', startIndex);
+                    console.log('Times:', times);
+                    console.log('Temperatures:', temperatures);
+
+                } catch (error) {
+                    console.log('Weather fetch error: ' + error.message);
+                }
+            }
+
             function onGpsSuccess(position) {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
                 map.setView([lat, lon], 11);
                 L.marker([lat, lon]).addTo(map);
+                fetchWeather(lat, lon);
             }
 
             function onGpsError(error) {
